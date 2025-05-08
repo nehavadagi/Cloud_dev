@@ -1,0 +1,47 @@
+name: Azure Deployment
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Login to Azure with Service Principal
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Log in to ACR
+      uses: azure/docker-login@v1
+      with:
+        login-server: ronitacr20354.azurecr.io
+        username: ${{ secrets.ACR_USERNAME }}
+        password: ${{ secrets.ACR_PASSWORD }}
+
+    - name: Build and Push Frontend
+      run: |
+        docker build -t ronitacr20354.azurecr.io/frontend:latest ./frontend
+        docker push ronitacr20354.azurecr.io/frontend:latest
+
+    - name: Build and Push Backend
+      run: |
+        docker build -t ronitacr20354.azurecr.io/backend:latest ./backend
+        docker push ronitacr20354.azurecr.io/backend:latest
+
+    - name: Deploy to Azure Web App
+      run: |
+        az webapp config container set \
+          --name your-new-app-name \
+          --resource-group DefaultResourceGroup-EAU \
+          --multicontainer-config-type compose \
+          --multicontainer-config-file docker-compose-azure.yml \
+          --docker-registry-server-url https://ronitacr20354.azurecr.io \
+          --docker-registry-server-user ${{ secrets.ACR_USERNAME }} \
+          --docker-registry-server-password ${{ secrets.ACR_PASSWORD }}
